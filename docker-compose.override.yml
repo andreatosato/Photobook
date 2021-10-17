@@ -1,0 +1,13 @@
+version: '3.4'
+
+services:
+  photobook:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=https://+:443;http://+:80
+      - ConnectionStrings__SqlConnection=Server=photobook.db;Database=photobook_db;User Id=sa;Password=Taggia42!
+    ports:
+      - "80"
+      - "443"
+    volumes:
+      - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro

@@ -1,0 +1,25 @@
+version: '3.4'
+
+services:
+  photobook:
+    image: ${DOCKER_REGISTRY-}photobook
+    build:
+      context: .
+      dockerfile: Photobook/Dockerfile
+    depends_on:
+      - db
+  db:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: photobook.db
+    hostname: photobook.db
+    volumes:
+      - sqlserverdata:/var/lib/sqlserver
+    ports:
+      - "6999:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "Taggia42!"
+
+volumes:
+  sqlserverdata:
+    driver: local
