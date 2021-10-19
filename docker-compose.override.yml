@@ -11,3 +11,10 @@ services:
       - "443"
     volumes:
       - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro
+
+  db:
+    ports:
+      - "6999:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "Taggia42!"

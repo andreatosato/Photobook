@@ -45,7 +45,7 @@ app.MapPost("photos", async (HttpRequest req, PhotoDbContext db) =>
     }
 
     var form = await req.ReadFormAsync();
-    var file = form.Files["file"];
+    var file = form.Files.FirstOrDefault();
 
     if (file is null)
     {
