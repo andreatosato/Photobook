@@ -1,8 +1,7 @@
-version: '3.4'
-
 services:
   photobook:
-    image: ${DOCKER_REGISTRY-}photobook
+    container_name: photobook
+    image: photobook
     build:
       context: .
       dockerfile: Photobook/Dockerfile
@@ -14,11 +13,6 @@ services:
     hostname: photobook.db
     volumes:
       - sqlserverdata:/var/lib/sqlserver
-    ports:
-      - "6999:1433"
-    environment:
-      ACCEPT_EULA: "Y"
-      SA_PASSWORD: "Taggia42!"
 
 volumes:
   sqlserverdata:
