@@ -6,6 +6,8 @@ services:
       - ConnectionStrings__SqlConnection=Server=photobook.db;Database=photobook_db;User Id=sa;Password=Taggia42!
       - ConnectionStrings__AzureStorageConnection=${STORAGEACCOUNTCONNECTION}
       - AppSettings__ContainerName=attachments
+      - AppSettings__CognitiveServicesKey=${COGNITIVESERVICESKEY}
+      - AppSettings__CognitiveServicesEndpoint=${COGNITIVESERVICESENDPOINT}
     ports:
       - "80"
       - "443"

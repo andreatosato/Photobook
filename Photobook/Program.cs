@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Azure;
 using MimeMapping;
 using Photobook;
 using Photobook.DataAccessLayer;
@@ -9,9 +8,8 @@ using Photobook.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<PhotoDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("SqlConnection")));
-
-builder.Services.AddAzureClients(options => options.AddBlobServiceClient(builder.Configuration.GetConnectionString("AzureStorageConnection")));
 builder.Services.AddScoped<AzureStorageService>();
+builder.Services.AddScoped<ComputerVisionService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options => options.OperationFilter<ImageExtensionFilter>());
@@ -56,7 +54,7 @@ app.MapGet("/photos/{id:guid}", async (Guid id, AzureStorageService azureStorage
 .Produces(StatusCodes.Status404NotFound)
 .WithName(EndpointNames.GetPhoto);
 
-app.MapPost("photos", async (HttpRequest req, AzureStorageService storageService, PhotoDbContext db) =>
+app.MapPost("photos", async (HttpRequest req, AzureStorageService storageService, ComputerVisionService computerVisionService, PhotoDbContext db) =>
 {
     if (!req.HasFormContentType)
     {
@@ -71,12 +69,12 @@ app.MapPost("photos", async (HttpRequest req, AzureStorageService storageService
         return Results.BadRequest();
     }
 
-    // TODO: Call Computer Vision to get photo description and save it to Azure Storage.
+    using var stream = file.OpenReadStream();
 
     var id = Guid.NewGuid();
     var newFileName = $"{id}{Path.GetExtension(file.FileName)}".ToLowerInvariant();
+    var description = await computerVisionService.GetDescriptionAsync(stream);
 
-    using var stream = file.OpenReadStream();
     await storageService.SaveAsync(newFileName, stream);
 
     var photo = new Photo
@@ -84,6 +82,7 @@ app.MapPost("photos", async (HttpRequest req, AzureStorageService storageService
         Id = id,
         OriginalFileName = file.FileName,
         Path = newFileName,
+        Description = description,
         UploadDate = DateTime.UtcNow
     };
 

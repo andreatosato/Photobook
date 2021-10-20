@@ -9,9 +9,9 @@ public class AzureStorageService
     private readonly BlobServiceClient blobServiceClient;
     private readonly string containerName;
 
-    public AzureStorageService(BlobServiceClient blobServiceClient, IConfiguration configuration)
+    public AzureStorageService(IConfiguration configuration)
     {
-        this.blobServiceClient = blobServiceClient;
+        blobServiceClient = new BlobServiceClient(configuration.GetConnectionString("AzureStorageConnection"));
         containerName = configuration.GetValue<string>("AppSettings:ContainerName").ToLowerInvariant();
     }
 
