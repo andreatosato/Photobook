@@ -4,7 +4,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=https://+:443;http://+:80
       - ConnectionStrings__SqlConnection=Server=photobook.db;Database=photobook_db;User Id=sa;Password=Taggia42!
-      - Storage={{STORAGEACCOUNT}}
+      - ConnectionStrings__AzureStorageConnection=${STORAGEACCOUNTCONNECTION}
+      - AppSettings__ContainerName=attachments
     ports:
       - "80"
       - "443"

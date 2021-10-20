@@ -1,12 +1,17 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Azure;
+using MimeMapping;
 using Photobook;
 using Photobook.DataAccessLayer;
 using Photobook.Filters;
+using Photobook.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<PhotoDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("SqlConnection")));
+builder.Services.AddDbContext<PhotoDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("SqlConnection")));
+
+builder.Services.AddAzureClients(options => options.AddBlobServiceClient(builder.Configuration.GetConnectionString("AzureStorageConnection")));
+builder.Services.AddScoped<AzureStorageService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options => options.OperationFilter<ImageExtensionFilter>());
@@ -31,15 +36,27 @@ app.MapGet("/photos", async (PhotoDbContext db) =>
 })
 .WithName(EndpointNames.GetPhotos);
 
-app.MapGet("/photos/{id:guid}", async (PhotoDbContext db) =>
+app.MapGet("/photos/{id:guid}", async (Guid id, AzureStorageService azureStorageService, PhotoDbContext db) =>
 {
-    // TODO: Downoload the photo
+    var photo = await db.Photos.FindAsync(id);
+    if (photo is null)
+    {
+        return Results.NotFound();
+    }
+
+    var stream = await azureStorageService.ReadAsync(photo.Path);
+    if (stream is null)
+    {
+        return Results.NotFound();
+    }
+
+    return Results.Stream(stream, MimeUtility.GetMimeMapping(photo.OriginalFileName));
 })
 .Produces(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status404NotFound)
 .WithName(EndpointNames.GetPhoto);
 
-app.MapPost("photos", async (HttpRequest req, PhotoDbContext db) =>
+app.MapPost("photos", async (HttpRequest req, AzureStorageService storageService, PhotoDbContext db) =>
 {
     if (!req.HasFormContentType)
     {
@@ -57,13 +74,16 @@ app.MapPost("photos", async (HttpRequest req, PhotoDbContext db) =>
     // TODO: Call Computer Vision to get photo description and save it to Azure Storage.
 
     var id = Guid.NewGuid();
-    var newFileName = $"{id}{Path.GetExtension(file.FileName)}";
+    var newFileName = $"{id}{Path.GetExtension(file.FileName)}".ToLowerInvariant();
+
+    using var stream = file.OpenReadStream();
+    await storageService.SaveAsync(newFileName, stream);
 
     var photo = new Photo
     {
         Id = id,
         OriginalFileName = file.FileName,
-        Path = $"https://storage/{newFileName}",
+        Path = newFileName,
         UploadDate = DateTime.UtcNow
     };
 
@@ -76,13 +96,15 @@ app.MapPost("photos", async (HttpRequest req, PhotoDbContext db) =>
 .Produces(StatusCodes.Status204NoContent)
 .Produces(StatusCodes.Status400BadRequest);
 
-app.MapDelete("/photos/{id:guid}", async (Guid id, PhotoDbContext db) =>
+app.MapDelete("/photos/{id:guid}", async (Guid id, AzureStorageService storageService, PhotoDbContext db) =>
 {
     var photo = await db.Photos.FindAsync(id);
     if (photo is null)
     {
         return Results.NotFound();
     }
+
+    await storageService.DeleteAsync(photo.Path);
 
     db.Photos.Remove(photo);
     await db.SaveChangesAsync();
