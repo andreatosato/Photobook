@@ -1,2 +1,2 @@
 # Photobook
-Photobook written in Minimal API with OpenTelemetry
+Photobook written in Minimal APIs with OpenTelemetry
