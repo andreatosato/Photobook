@@ -1,5 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Photobook;
 using Photobook.DataAccessLayer;
+using Photobook.Exntensions;
+using Photobook.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -7,7 +10,7 @@ builder.Services.AddDbContext<PhotoDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("SqlConnection")));
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options => options.OperationFilter<ImageExtensionFilter>());
 
 var app = builder.Build();
 
@@ -27,7 +30,7 @@ app.MapGet("/photos", async (PhotoDbContext db) =>
     var photos = await db.Photos.OrderBy(p => p.OriginalFileName).ToListAsync();
     return photos;
 })
-.WithName("GetPhotos");
+.WithName(EndpointNames.GetPhotos);
 
 app.MapGet("/photos/{id:guid}", async (PhotoDbContext db) =>
 {
@@ -35,7 +38,7 @@ app.MapGet("/photos/{id:guid}", async (PhotoDbContext db) =>
 })
 .Produces(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status404NotFound)
-.WithName("GetPhoto");
+.WithName(EndpointNames.GetPhoto);
 
 app.MapPost("photos", async (HttpRequest req, PhotoDbContext db) =>
 {
@@ -45,9 +48,9 @@ app.MapPost("photos", async (HttpRequest req, PhotoDbContext db) =>
     }
 
     var form = await req.ReadFormAsync();
-    var file = form.Files["file"];
+    var file = form.Files.FirstOrDefault();
 
-    if (file is null)
+    if (file is null || !file.IsImage())
     {
         return Results.BadRequest();
     }
@@ -70,10 +73,9 @@ app.MapPost("photos", async (HttpRequest req, PhotoDbContext db) =>
 
     return Results.NoContent();
 })
-.WithName("UploadPhoto")
+.WithName(EndpointNames.UploadPhoto)
 .Produces(StatusCodes.Status204NoContent)
-.Produces(StatusCodes.Status400BadRequest)
-.Accepts<IFormFile>("multipart/form-data");
+.Produces(StatusCodes.Status400BadRequest);
 
 app.MapDelete("/photos/{id:guid}", async (Guid id, PhotoDbContext db) =>
 {
@@ -88,7 +90,7 @@ app.MapDelete("/photos/{id:guid}", async (Guid id, PhotoDbContext db) =>
 
     return Results.NoContent();
 })
-.WithName("DeletePhoto")
+.WithName(EndpointNames.DeletePhoto)
 .Produces(StatusCodes.Status204NoContent)
 .Produces(StatusCodes.Status404NotFound);
 
