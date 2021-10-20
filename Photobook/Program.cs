@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Photobook;
 using Photobook.DataAccessLayer;
-using Photobook.Exntensions;
 using Photobook.Filters;
 
 var builder = WebApplication.CreateBuilder(args);

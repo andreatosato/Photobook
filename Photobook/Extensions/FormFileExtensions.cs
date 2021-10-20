@@ -1,4 +1,4 @@
-﻿namespace Photobook.Exntensions;
+﻿namespace Photobook;
 
 public static class FormFileExtensions
 {
