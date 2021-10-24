@@ -3,9 +3,14 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31808.319
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Photobook", "Photobook\Photobook.csproj", "{53F43451-1076-465C-8291-3DE76772B29B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Photobook", "Photobook\Photobook.csproj", "{53F43451-1076-465C-8291-3DE76772B29B}"
 EndProject
 Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{61D190F4-7A1E-4BAE-9F4E-9390323D2F3B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{24771475-FF36-40E3-80FA-7A957123718C}"
+	ProjectSection(SolutionItems) = preProject
+		config\otel-collector-config.yaml = config\otel-collector-config.yaml
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
