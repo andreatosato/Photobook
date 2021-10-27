@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using MimeMapping;
 using OpenTelemetry.Instrumentation.AspNetCore;
@@ -7,10 +8,9 @@ using Photobook;
 using Photobook.DataAccessLayer;
 using Photobook.Filters;
 using Photobook.Services;
-using System.Diagnostics;
 
 const string SourceName = "Photobook";
-ActivitySource source = new ActivitySource(SourceName);
+var source = new ActivitySource(SourceName);
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,11 +25,11 @@ builder.Services.AddOpenTelemetryTracing(
     (builder) => builder
         .AddSource(SourceName)
         .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(SourceName).AddTelemetrySdk())
-        .AddSqlClientInstrumentation(s =>
+        .AddSqlClientInstrumentation(options =>
         {
-            s.SetDbStatementForStoredProcedure = true;
-            s.SetDbStatementForText = true;
-            s.RecordException = true;
+            options.SetDbStatementForStoredProcedure = true;
+            options.SetDbStatementForText = true;
+            options.RecordException = true;
         })
         .AddAspNetCoreInstrumentation(options =>
         {
@@ -42,9 +42,9 @@ builder.Services.AddOpenTelemetryTracing(
             otlpOptions.Endpoint = new Uri("http://otel:4317");
         })
     );
-builder.Services.Configure<AspNetCoreInstrumentationOptions>(t =>
+builder.Services.Configure<AspNetCoreInstrumentationOptions>(options =>
 {
-    t.RecordException = true;
+    options.RecordException = true;
 });
 
 var app = builder.Build();
@@ -62,11 +62,14 @@ app.UseSwaggerUI(options =>
 app.MapGet("/photos", async (PhotoDbContext db) =>
 {
     using var activity = source.StartActivity(SourceName, ActivityKind.Internal);
+
     var photos = await db.Photos.OrderBy(p => p.OriginalFileName).ToListAsync();
-    activity?.AddEvent(new ActivityEvent("Load Photos", tags: new ActivityTagsCollection(new[] { KeyValuePair.Create<string, object>("Count", photos.Count) })));
+
+    activity?.AddEvent(new ActivityEvent("Load Photos", tags: new ActivityTagsCollection(new[] { KeyValuePair.Create<string, object?>("Count", photos.Count) })));
     activity?.SetTag("photoNumbers", photos.Count);
     activity?.SetTag("otel.status_code", "OK");
     activity?.SetTag("otel.status_description", "Load successfully");
+
     return photos;
 })
 .WithName(EndpointNames.GetPhotos);
@@ -156,7 +159,9 @@ app.Run();
 async Task EnsureDbAsync(IServiceProvider services)
 {
     using var activity = source.StartActivity("DatabaseMigration", ActivityKind.Internal);
+
     using var db = services.CreateScope().ServiceProvider.GetRequiredService<PhotoDbContext>();
     await db.Database.MigrateAsync();
+
     activity?.Stop();
 }

@@ -5,6 +5,8 @@ services:
     build:
       context: .
       dockerfile: Photobook/Dockerfile
+    dns:
+      - 8.8.8.8
     depends_on:
       - db
   db:
