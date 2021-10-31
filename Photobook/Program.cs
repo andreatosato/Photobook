@@ -1,13 +1,15 @@
-using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using MimeMapping;
 using OpenTelemetry.Instrumentation.AspNetCore;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Photobook;
 using Photobook.DataAccessLayer;
 using Photobook.Filters;
 using Photobook.Services;
+using System.Diagnostics;
+using System.Text.Json;
 
 const string SourceName = "Photobook";
 var source = new ActivitySource(SourceName);
@@ -22,12 +24,11 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options => options.OperationFilter<ImageExtensionFilter>());
 
 builder.Services.AddOpenTelemetryTracing(
-    (builder) => builder
+    (b) => b
         .AddSource(SourceName)
         .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(SourceName).AddTelemetrySdk())
         .AddSqlClientInstrumentation(options =>
         {
-            options.SetDbStatementForStoredProcedure = true;
             options.SetDbStatementForText = true;
             options.RecordException = true;
         })
@@ -39,9 +40,18 @@ builder.Services.AddOpenTelemetryTracing(
         .AddHttpClientInstrumentation()
         .AddOtlpExporter(otlpOptions =>
         {
-            otlpOptions.Endpoint = new Uri("http://otel:4317");
+            otlpOptions.Endpoint = new Uri(builder.Configuration.GetValue<string>("AppSettings:OtelEndpoint"));
         })
     );
+builder.Services.AddOpenTelemetryMetrics(b =>
+    b.AddHttpClientInstrumentation()
+     .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(SourceName).AddTelemetrySdk())
+     .AddMeter("ComputerVision")
+     .AddOtlpExporter(otlpOptions =>
+     {
+         otlpOptions.Endpoint = new Uri(builder.Configuration.GetValue<string>("AppSettings:OtelEndpoint"));
+     })
+);
 builder.Services.Configure<AspNetCoreInstrumentationOptions>(options =>
 {
     options.RecordException = true;
@@ -76,17 +86,27 @@ app.MapGet("/photos", async (PhotoDbContext db) =>
 
 app.MapGet("/photos/{id:guid}", async (Guid id, AzureStorageService azureStorageService, PhotoDbContext db) =>
 {
+    using var getActivity = source.StartActivity(SourceName, ActivityKind.Internal);
+
+    var dbActivity = source.StartActivity(SourceName, ActivityKind.Consumer, getActivity.Context);
     var photo = await db.Photos.FindAsync(id);
     if (photo is null)
     {
+        dbActivity.SetStatus(Status.Error);
         return Results.NotFound();
     }
+    dbActivity.SetTag("minetype", MimeUtility.GetMimeMapping(photo.OriginalFileName));
+    dbActivity.Stop();
 
+    var streamActivity = source.StartActivity(SourceName, ActivityKind.Consumer, getActivity.Context);
     var stream = await azureStorageService.ReadAsync(photo.Path);
     if (stream is null)
     {
+        streamActivity.SetStatus(Status.Error);
         return Results.NotFound();
     }
+    streamActivity.SetTag("stream.dimension", stream.Length);
+    streamActivity.Stop();
 
     return Results.Stream(stream, MimeUtility.GetMimeMapping(photo.OriginalFileName));
 })
@@ -96,16 +116,22 @@ app.MapGet("/photos/{id:guid}", async (Guid id, AzureStorageService azureStorage
 
 app.MapPost("photos", async (HttpRequest req, AzureStorageService storageService, ComputerVisionService computerVisionService, PhotoDbContext db) =>
 {
+    using var postActivity = source.StartActivity(SourceName, ActivityKind.Internal);
     if (!req.HasFormContentType)
     {
+        postActivity.SetStatus(Status.Error);
         return Results.BadRequest();
     }
 
+    var readStreamActivity = source.StartActivity(SourceName, ActivityKind.Consumer, postActivity.Context);
+    readStreamActivity.DisplayName = "ReadStream";
     var form = await req.ReadFormAsync();
     var file = form.Files.FirstOrDefault();
+    readStreamActivity.SetTag("file-numbers", form.Files.Count);
 
     if (file is null || !file.IsImage())
     {
+        readStreamActivity.SetStatus(Status.Error);
         return Results.BadRequest();
     }
 
@@ -113,10 +139,21 @@ app.MapPost("photos", async (HttpRequest req, AzureStorageService storageService
 
     var id = Guid.NewGuid();
     var newFileName = $"{id}{Path.GetExtension(file.FileName)}".ToLowerInvariant();
+    readStreamActivity.Stop();
+
+    var computerVisionActivity = source.StartActivity(SourceName, ActivityKind.Consumer, postActivity.Context);
+    computerVisionActivity.DisplayName = "Computer Vision";
     var description = await computerVisionService.GetDescriptionAsync(stream);
+    computerVisionActivity?.SetTag("description", description);
+    computerVisionActivity?.Stop();
 
+    var storageActivity = source.StartActivity(SourceName, ActivityKind.Consumer, postActivity.Context);
+    storageActivity.DisplayName = "Storage Activity";
     await storageService.SaveAsync(newFileName, stream);
+    storageActivity?.Stop();
 
+    var dbActivity = source.StartActivity(SourceName, ActivityKind.Consumer, postActivity.Context);
+    dbActivity.DisplayName = "EF Activity";
     var photo = new Photo
     {
         Id = id,
@@ -125,9 +162,11 @@ app.MapPost("photos", async (HttpRequest req, AzureStorageService storageService
         Description = description,
         UploadDate = DateTime.UtcNow
     };
+    dbActivity.SetTag("entity", JsonSerializer.Serialize(photo));
 
     db.Photos.Add(photo);
     await db.SaveChangesAsync();
+    dbActivity?.Stop();
 
     return Results.NoContent();
 })

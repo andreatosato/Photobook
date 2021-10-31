@@ -34,6 +34,14 @@ services:
       - 16686:16686
       - 14250:14250
 
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
   otel:
     image: otel/opentelemetry-collector-contrib
     container_name: otel
