@@ -60,7 +60,7 @@ builder.Services.Configure<AspNetCoreInstrumentationOptions>(options =>
 var app = builder.Build();
 await EnsureDbAsync(app.Services);
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 app.UseSwagger();
 app.UseSwaggerUI(options =>
@@ -86,9 +86,9 @@ app.MapGet("/photos", async (PhotoDbContext db) =>
 
 app.MapGet("/photos/{id:guid}", async (Guid id, AzureStorageService azureStorageService, PhotoDbContext db) =>
 {
-    using var getActivity = source.StartActivity(SourceName, ActivityKind.Internal);
+    using var getActivity = source.StartActivity(SourceName, ActivityKind.Internal)!;
 
-    var dbActivity = source.StartActivity(SourceName, ActivityKind.Consumer, getActivity.Context);
+    var dbActivity = source.StartActivity(SourceName, ActivityKind.Consumer, getActivity.Context)!;
     var photo = await db.Photos.FindAsync(id);
     if (photo is null)
     {
@@ -98,7 +98,7 @@ app.MapGet("/photos/{id:guid}", async (Guid id, AzureStorageService azureStorage
     dbActivity.SetTag("minetype", MimeUtility.GetMimeMapping(photo.OriginalFileName));
     dbActivity.Stop();
 
-    var streamActivity = source.StartActivity(SourceName, ActivityKind.Consumer, getActivity.Context);
+    var streamActivity = source.StartActivity(SourceName, ActivityKind.Consumer, getActivity.Context)!;
     var stream = await azureStorageService.ReadAsync(photo.Path);
     if (stream is null)
     {
@@ -123,7 +123,7 @@ app.MapPost("photos", async (HttpRequest req, AzureStorageService storageService
         return Results.BadRequest();
     }
 
-    var readStreamActivity = source.StartActivity(SourceName, ActivityKind.Consumer, postActivity.Context);
+    var readStreamActivity = source.StartActivity(SourceName, ActivityKind.Consumer, postActivity.Context)!;
     readStreamActivity.DisplayName = "ReadStream";
     var form = await req.ReadFormAsync();
     var file = form.Files.FirstOrDefault();
@@ -141,18 +141,18 @@ app.MapPost("photos", async (HttpRequest req, AzureStorageService storageService
     var newFileName = $"{id}{Path.GetExtension(file.FileName)}".ToLowerInvariant();
     readStreamActivity.Stop();
 
-    var computerVisionActivity = source.StartActivity(SourceName, ActivityKind.Consumer, postActivity.Context);
+    var computerVisionActivity = source.StartActivity(SourceName, ActivityKind.Consumer, postActivity.Context)!;
     computerVisionActivity.DisplayName = "Computer Vision";
     var description = await computerVisionService.GetDescriptionAsync(stream);
     computerVisionActivity?.SetTag("description", description);
     computerVisionActivity?.Stop();
 
-    var storageActivity = source.StartActivity(SourceName, ActivityKind.Consumer, postActivity.Context);
+    var storageActivity = source.StartActivity(SourceName, ActivityKind.Consumer, postActivity.Context)!;
     storageActivity.DisplayName = "Storage Activity";
     await storageService.SaveAsync(newFileName, stream);
     storageActivity?.Stop();
 
-    var dbActivity = source.StartActivity(SourceName, ActivityKind.Consumer, postActivity.Context);
+    var dbActivity = source.StartActivity(SourceName, ActivityKind.Consumer, postActivity.Context)!;
     dbActivity.DisplayName = "EF Activity";
     var photo = new Photo
     {
@@ -168,10 +168,10 @@ app.MapPost("photos", async (HttpRequest req, AzureStorageService storageService
     await db.SaveChangesAsync();
     dbActivity?.Stop();
 
-    return Results.NoContent();
+    return Results.Created($"/photos/{id}", photo);
 })
 .WithName(EndpointNames.UploadPhoto)
-.Produces(StatusCodes.Status204NoContent)
+.Produces(StatusCodes.Status201Created)
 .Produces(StatusCodes.Status400BadRequest);
 
 app.MapDelete("/photos/{id:guid}", async (Guid id, AzureStorageService storageService, PhotoDbContext db) =>

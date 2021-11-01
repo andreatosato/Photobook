@@ -10,8 +10,8 @@ services:
       - AppSettings__CognitiveServicesEndpoint=${COGNITIVESERVICESENDPOINT}
       - AppSettings__OtelEndpoint=${OTELENDPOINT}
     ports:
-      - "80"
-      - "443"
+      - "8081:80"
+      - "44328:443"
     volumes:
       - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro
 

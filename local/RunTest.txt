@@ -1,0 +1,1 @@
+cat script.js | docker run -v D:\Progetti\andreatosato\Photobook\local\k6-test\images:/images -i loadimpact/k6 run --vus 1 --duration 5s --http-debug="full" -
