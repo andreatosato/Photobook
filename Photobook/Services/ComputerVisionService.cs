@@ -1,21 +1,21 @@
 ﻿using Microsoft.Azure.CognitiveServices.Vision.ComputerVision;
 using Microsoft.Azure.CognitiveServices.Vision.ComputerVision.Models;
-using System.Diagnostics.Metrics;
 
 namespace Photobook.Services;
 
 public class ComputerVisionService
 {
     private readonly ComputerVisionClient computerVisionClient;
-    private readonly Meter meter;
+    private readonly ComputerVisionMetricsService computerVisionMetricsService;
 
-    public ComputerVisionService(IConfiguration configuration)
+    public ComputerVisionService(IConfiguration configuration, ComputerVisionMetricsService computerVisionMetricsService)
     {
         computerVisionClient = new ComputerVisionClient(new ApiKeyServiceClientCredentials(configuration.GetValue<string>("AppSettings:CognitiveServicesKey")))
         {
             Endpoint = configuration.GetValue<string>("AppSettings:CognitiveServicesEndpoint")
         };
-        meter = new Meter("ComputerVision");
+
+        this.computerVisionMetricsService = computerVisionMetricsService;
     }
 
     public async Task<string?> GetDescriptionAsync(Stream stream)
@@ -26,17 +26,18 @@ public class ComputerVisionService
         await stream.CopyToAsync(analyzeStream);
         analyzeStream.Position = 0;
 
+        computerVisionMetricsService.PayloadCounter.Add(analyzeStream.Length);
+        computerVisionMetricsService.RequestCounter.Add(1);
 
-        Counter<int> payloadMetrics = meter.CreateCounter<int>("PayloadCounter");
-        payloadMetrics.Add((int)analyzeStream.Length);
-        Counter<int> cognitiveRequest = meter.CreateCounter<int>("CognitiveRequest");
-        cognitiveRequest.Add(1);
+        var result = await computerVisionClient.AnalyzeImageInStreamAsync(analyzeStream, new List<VisualFeatureTypes?> { VisualFeatureTypes.Description });
 
-        var result = await computerVisionClient.AnalyzeImageInStreamAsync(analyzeStream, new List<VisualFeatureTypes?> { VisualFeatureTypes.Description, VisualFeatureTypes.Tags, VisualFeatureTypes.Faces });
+        var description = result.Description.Captions.FirstOrDefault();
+        if (description != null)
+        {
+            computerVisionMetricsService.ConfidenceHistogram.Record(description.Confidence, KeyValuePair.Create<string, object?>("confidence-description", description.Text));
+            return description.Text;
+        }
 
-        Histogram<double> confidence = meter.CreateHistogram<double>("Confidence");
-        confidence.Record(result.Description.Captions.FirstOrDefault()?.Confidence ?? 0, KeyValuePair.Create<string, object?>("confidence-description", result.Description.Captions.FirstOrDefault()?.Text));
-
-        return result.Description.Captions.FirstOrDefault()?.Text;
+        return null;
     }
 }
