@@ -89,10 +89,10 @@ app.MapPost("photos", async (HttpRequest req, AzureStorageService storageService
     db.Photos.Add(photo);
     await db.SaveChangesAsync();
 
-    return Results.NoContent();
+    return Results.CreatedAtRoute(EndpointNames.GetPhoto, new { id }, photo);
 })
 .WithName(EndpointNames.UploadPhoto)
-.Produces(StatusCodes.Status204NoContent)
+.Produces(StatusCodes.Status201Created)
 .Produces(StatusCodes.Status400BadRequest);
 
 app.MapDelete("/photos/{id:guid}", async (Guid id, AzureStorageService storageService, PhotoDbContext db) =>
