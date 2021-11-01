@@ -7,9 +7,6 @@ exporters:
   zipkin:
     endpoint: "http://zipkin:9411/api/v2/spans"
 
-  jaeger:
-    endpoint: "http://jaeger:14250"
-
   prometheus:
     endpoint: "0.0.0.0:8889"
 
@@ -29,7 +26,7 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [zipkin, jaeger]
+      exporters: [zipkin]
     metrics:
       receivers: [otlp]
       processors: [batch]

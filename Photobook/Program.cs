@@ -60,7 +60,7 @@ builder.Services.Configure<AspNetCoreInstrumentationOptions>(options =>
 var app = builder.Build();
 await EnsureDbAsync(app.Services);
 
-//app.UseHttpsRedirection();
+app.UseHttpsRedirection();
 
 app.UseSwagger();
 app.UseSwaggerUI(options =>
@@ -116,7 +116,7 @@ app.MapGet("/photos/{id:guid}", async (Guid id, AzureStorageService azureStorage
 
 app.MapPost("photos", async (HttpRequest req, AzureStorageService storageService, ComputerVisionService computerVisionService, PhotoDbContext db) =>
 {
-    using var postActivity = source.StartActivity(SourceName, ActivityKind.Internal);
+    using var postActivity = source.StartActivity(SourceName, ActivityKind.Internal)!;
     if (!req.HasFormContentType)
     {
         postActivity.SetStatus(Status.Error);
@@ -168,7 +168,7 @@ app.MapPost("photos", async (HttpRequest req, AzureStorageService storageService
     await db.SaveChangesAsync();
     dbActivity?.Stop();
 
-    return Results.Created($"/photos/{id}", photo);
+    return Results.CreatedAtRoute(EndpointNames.GetPhoto, new { id }, photo);
 })
 .WithName(EndpointNames.UploadPhoto)
 .Produces(StatusCodes.Status201Created)
