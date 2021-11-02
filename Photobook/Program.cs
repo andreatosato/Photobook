@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using MimeMapping;
 using OpenTelemetry.Instrumentation.AspNetCore;
@@ -10,8 +8,11 @@ using Photobook;
 using Photobook.DataAccessLayer;
 using Photobook.Filters;
 using Photobook.Services;
+using System.Diagnostics;
+using System.Text.Json;
 
 const string SourceName = "Photobook";
+const string MeterName = "ComputerVision";
 var source = new ActivitySource(SourceName);
 
 var builder = WebApplication.CreateBuilder(args);
@@ -47,7 +48,7 @@ builder.Services.AddOpenTelemetryTracing(options =>
 builder.Services.AddOpenTelemetryMetrics(options =>
     options.AddHttpClientInstrumentation()
      .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(SourceName).AddTelemetrySdk())
-     .AddMeter("ComputerVision")
+     .AddMeter(MeterName)
      .AddOtlpExporter(otlpOptions =>
      {
          otlpOptions.Endpoint = new Uri(builder.Configuration.GetValue<string>("AppSettings:OtelEndpoint"));
@@ -193,16 +194,29 @@ app.MapPost("photos", async (HttpRequest req, AzureStorageService storageService
 
 app.MapDelete("/photos/{id:guid}", async (Guid id, AzureStorageService storageService, PhotoDbContext db) =>
 {
+    using var deleteActivity = source.StartActivity(SourceName, ActivityKind.Internal)!;
+    deleteActivity.SetTag("photo-id", id);
     var photo = await db.Photos.FindAsync(id);
     if (photo is null)
     {
+        deleteActivity.SetStatus(Status.Error);
         return Results.NotFound();
     }
 
+    var storageActivity = source.StartActivity(SourceName, ActivityKind.Consumer, deleteActivity.Context)!;
+    storageActivity.DisplayName = "Storage Activity";
+
     await storageService.DeleteAsync(photo.Path);
+    storageActivity.Stop();
+
+    var dbActivity = source.StartActivity(SourceName, ActivityKind.Consumer, deleteActivity.Context)!;
+    dbActivity.DisplayName = "Entity Framework Core Activity";
+    dbActivity.SetTag("photo", photo);
 
     db.Photos.Remove(photo);
     await db.SaveChangesAsync();
+
+    dbActivity.Stop();
 
     return Results.NoContent();
 })
@@ -213,7 +227,7 @@ app.MapDelete("/photos/{id:guid}", async (Guid id, AzureStorageService storageSe
 app.Run();
 
 async Task EnsureDbAsync(IServiceProvider services)
-{    
+{
     using var db = services.CreateScope().ServiceProvider.GetRequiredService<PhotoDbContext>();
     await db.Database.MigrateAsync();
 }
