@@ -213,11 +213,7 @@ app.MapDelete("/photos/{id:guid}", async (Guid id, AzureStorageService storageSe
 app.Run();
 
 async Task EnsureDbAsync(IServiceProvider services)
-{
-    using var activity = source.StartActivity(SourceName, ActivityKind.Internal);
-
+{    
     using var db = services.CreateScope().ServiceProvider.GetRequiredService<PhotoDbContext>();
     await db.Database.MigrateAsync();
-
-    activity?.Stop();
 }
