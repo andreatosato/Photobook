@@ -1,1 +1,0 @@
-docker run --rm -v ${PWD}:/local openapitools/openapi-generator-cli generate -i https://raw.githubusercontent.com/andreatosato/Photobook/main/local/swagger.json -g k6 -o /local/k6-test/ --skip-validate-spec
