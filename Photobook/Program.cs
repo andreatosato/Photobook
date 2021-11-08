@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using MimeMapping;
 using OpenTelemetry.Instrumentation.AspNetCore;
@@ -8,8 +10,6 @@ using Photobook;
 using Photobook.DataAccessLayer;
 using Photobook.Filters;
 using Photobook.Services;
-using System.Diagnostics;
-using System.Text.Json;
 
 const string SourceName = "Photobook";
 const string MeterName = "ComputerVision";
