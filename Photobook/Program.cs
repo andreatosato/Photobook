@@ -17,7 +17,7 @@ var source = new ActivitySource(SourceName);
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<PhotoDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("SqlConnection")));
+builder.Services.AddSqlServer<PhotoDbContext>(builder.Configuration.GetConnectionString("SqlConnection"));
 builder.Services.AddScoped<AzureStorageService>();
 builder.Services.AddScoped<ComputerVisionService>();
 
@@ -226,7 +226,7 @@ app.MapDelete("/photos/{id:guid}", async (Guid id, AzureStorageService storageSe
 
 app.Run();
 
-async Task EnsureDbAsync(IServiceProvider services)
+static async Task EnsureDbAsync(IServiceProvider services)
 {
     using var db = services.CreateScope().ServiceProvider.GetRequiredService<PhotoDbContext>();
     await db.Database.MigrateAsync();
