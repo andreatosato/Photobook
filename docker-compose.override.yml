@@ -8,7 +8,7 @@ services:
       - AppSettings__ContainerName=attachments
       - AppSettings__CognitiveServicesKey=${COGNITIVESERVICESKEY}
       - AppSettings__CognitiveServicesEndpoint=${COGNITIVESERVICESENDPOINT}
-      - AppSettings__OtelEndpoint=${OTELENDPOINT}
+      - AppSettings__OtelEndpoint=http://otel:4317
     ports:
       - "8081:80"
       - "44328:443"
