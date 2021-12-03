@@ -5,5 +5,4 @@ A simple Photobook application written in Minimal APIs with OpenTelemetry. To co
 STORAGEACCOUNTCONNECTION=
 COGNITIVESERVICESKEY=
 COGNITIVESERVICESENDPOINT=
-OTELENDPOINT=http://otel:4317
 ```
