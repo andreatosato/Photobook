@@ -10,6 +10,18 @@ exporters:
   prometheus:
     endpoint: "0.0.0.0:8889"
 
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    format: json
+    labels:
+      attributes:
+        container.name: "loki_container"
+        severity: "trace"
+      resource:
+        resource.name: "OTEL"
+        service.name: "service_name"
+        service.instance.id: "service_instance_id"
+
 processors:
   batch:
 
@@ -31,3 +43,7 @@ service:
       receivers: [otlp]
       processors: [batch]
       exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [loki]

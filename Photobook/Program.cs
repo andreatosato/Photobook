@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using MimeMapping;
 using OpenTelemetry.Instrumentation.AspNetCore;
+using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -55,6 +56,18 @@ builder.Services.AddOpenTelemetryMetrics(options =>
      })
 );
 
+builder.Logging.AddOpenTelemetry(x =>
+{
+    x.SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(SourceName));
+    x.IncludeFormattedMessage = true;
+    x.IncludeScopes = true;
+    x.ParseStateValues = true;
+    x.AddOtlpExporter(options =>
+    {
+        options.Endpoint = new Uri(builder.Configuration.GetValue<string>("AppSettings:OtelEndpoint"));
+    });
+});
+
 builder.Services.Configure<AspNetCoreInstrumentationOptions>(options =>
 {
     options.RecordException = true;
@@ -74,8 +87,9 @@ app.UseSwaggerUI(options =>
     options.SwaggerEndpoint("/swagger/v1/swagger.json", "Photobook API v1");
 });
 
-app.MapGet("/photos", async (PhotoDbContext db) =>
+app.MapGet("/photos", async (PhotoDbContext db, ILogger<Program> logger) =>
 {
+    logger.LogInformation("Request MapGet Photos");
     using var activity = source.StartActivity(SourceName, ActivityKind.Internal)!;
 
     var photos = await db.Photos.OrderBy(p => p.OriginalFileName).ToListAsync();
