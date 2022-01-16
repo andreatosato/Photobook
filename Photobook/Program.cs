@@ -99,6 +99,7 @@ app.MapGet("/photos", async (PhotoDbContext db, ILogger<Program> logger) =>
     activity.SetTag("otel.status_code", "OK");
     activity.SetTag("otel.status_description", "Load successfully");
 
+    logger.LogInformation("Response MapGet Number of photos: {photos}", photos.Count);
     return photos;
 })
 .WithName(EndpointNames.GetPhotos);
