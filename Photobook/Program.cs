@@ -3,6 +3,7 @@ using MimeMapping;
 using Photobook;
 using Photobook.DataAccessLayer;
 using Photobook.Filters;
+using Photobook.Logging;
 using Photobook.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,6 +14,8 @@ builder.Services.AddScoped<ComputerVisionService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options => options.OperationFilter<ImageExtensionFilter>());
+
+builder.Services.AddSingleton<ProgramLogger>();
 
 var app = builder.Build();
 
@@ -27,9 +30,12 @@ app.UseSwaggerUI(options =>
     options.SwaggerEndpoint("/swagger/v1/swagger.json", "Photobook API v1");
 });
 
-app.MapGet("/photos", async (PhotoDbContext db) =>
+app.MapGet("/photos", async (PhotoDbContext db, ProgramLogger logger) =>
 {
+    logger.LogRequestMapGetPhotos();
     var photos = await db.Photos.OrderBy(p => p.OriginalFileName).ToListAsync();
+
+    logger.LogResponseMapGetPhotos(photos.Count);
     return photos;
 })
 .WithName(EndpointNames.GetPhotos);

@@ -42,10 +42,7 @@ public class AzureStorageService
             return null;
         }
 
-        var stream = new MemoryStream();
-        await blobClient.DownloadToAsync(stream).ConfigureAwait(false);
-        stream.Position = 0;
-
+        var stream = await blobClient.OpenReadAsync();
         return stream;
     }
 
