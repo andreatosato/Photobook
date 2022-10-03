@@ -8,14 +8,14 @@ using Photobook.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddSingleton<ProgramLogger>();
+
 builder.Services.AddSqlServer<PhotoDbContext>(builder.Configuration.GetConnectionString("SqlConnection"));
 builder.Services.AddScoped<AzureStorageService>();
 builder.Services.AddScoped<ComputerVisionService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options => options.OperationFilter<ImageExtensionFilter>());
-
-builder.Services.AddSingleton<ProgramLogger>();
 
 var app = builder.Build();
 
